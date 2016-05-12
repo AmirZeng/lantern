@@ -14,9 +14,9 @@ be recorded.
 
 Extra fields can be chained in any order, at any time.
 
-  func Foo() *Error {
+  func Foo() error {
   	//...
-    return errors.New("some error").With("some_counter", 1).WithOp("connect")
+    return errors.New("some error").With("some_counter", 1).WithOp("connect").Finish()
   }
   ...
   if err := Foo(); err != nil {
@@ -103,7 +103,7 @@ func (d *director) report(e *Error) {
 	d.r.Report(e)
 	if d.logging {
 		var pkg = fmt.Sprintf("%k", caller)
-		golog.LoggerFor(pkg).Error(e.Error())
+		golog.LoggerFor(pkg).Error(e.String())
 	}
 }
 
@@ -118,7 +118,7 @@ type nullReporter struct{}
 
 func (l nullReporter) Report(*Error) {}
 
-// New creates an Error with supplied description
+// New creates a Error error with supplied description
 func New(s string) (e *Error) {
 	e = &Error{
 		GoType: "errors.Error",
@@ -137,8 +137,8 @@ func Wrap(err error) *Error {
 	if err == nil {
 		return nil
 	}
-	if e, ok := err.(*Error); ok {
-		return e
+	if e, ok := err.(*wrapped); ok {
+		return e.orig
 	}
 	e := &Error{
 		Source: err,
@@ -188,10 +188,17 @@ type Error struct {
 	*SystemInfo
 }
 
+// Unexported extension of Error that implements the error interface. This keeps
+// users from being able to manually build an Error and use it as an error.
+type wrapped struct {
+	orig *Error
+}
+
 // Report calls the reporter supplied during Initialize. It will also call
 // golog.Error if errors package is initialized with enableLogging=true.
-func (e *Error) Report() {
+func (e *Error) Report() *Error {
 	curDirector.report(e)
+	return e
 }
 
 // WithOp attaches a hint of which operation triggers this Error. Many error
@@ -300,11 +307,20 @@ func (e *Error) With(key string, value interface{}) *Error {
 	return e
 }
 
-// Error satisfies the error interface
-func (e *Error) Error() string {
+func (e *Error) String() string {
 	var buf bytes.Buffer
 	e.writeTo(&buf)
 	return buf.String()
+}
+
+// Error satisfies the error interface
+func (e *wrapped) Error() string {
+	return e.orig.String()
+}
+
+// Finish builds the final error
+func (e *Error) Finish() error {
+	return &wrapped{e}
 }
 
 func (e *Error) writeTo(w io.Writer) {

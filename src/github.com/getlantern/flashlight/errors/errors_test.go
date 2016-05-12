@@ -29,11 +29,11 @@ func TestAnonymousError(t *testing.T) {
 		GoType:  "errors.Error",
 		Desc:    "any error",
 	}
-	assert.Equal(t, expected.Error(), rr.err.Error(), "should log errors created by New()")
+	assert.Equal(t, expected.Finish().Error(), rr.err.Finish().Error(), "should log errors created by New()")
 
 	Wrap(fmt.Errorf("any error")).Report()
 	expected.GoType = "*errors.errorString"
-	assert.Equal(t, expected.Error(), rr.err.Error(), "should log errors created by Wrap()")
+	assert.Equal(t, expected.Finish().Error(), rr.err.Finish().Error(), "should log errors created by Wrap()")
 }
 
 func TestWrapNil(t *testing.T) {
@@ -42,7 +42,7 @@ func TestWrapNil(t *testing.T) {
 
 func TestWrapAlreadyWrapped(t *testing.T) {
 	e := New("any error")
-	assert.Equal(t, e, Wrap(e), "should not wrap already wrapped error")
+	assert.Equal(t, e, Wrap(e.Finish()), "should not wrap already wrapped error")
 }
 
 func TestWithFields(t *testing.T) {
@@ -60,7 +60,7 @@ func TestWithFields(t *testing.T) {
 	e.Report()
 	assert.NotEqual(t, rr.err.FileLine, rr.err.ReportFileLine, "should log all fields")
 	expected := "any error Package=errors Func=TestWithFields GoType=*errors.errorString Op=test ProxyType=no_proxy ProxyAddr=a.b.c.d:80 OriginSite=www.google.com:443 URIScheme=https TimeZone=CST Language=CUserAgent=Mozilla/5.0... foo=bar"
-	assert.Equal(t, expected, rr.err.Error(), "should log all fields")
+	assert.Equal(t, expected, rr.err.Finish().Error(), "should log all fields")
 }
 
 func TestCaptureError(t *testing.T) {
@@ -70,7 +70,7 @@ func TestCaptureError(t *testing.T) {
 	err := Wrap(e)
 	err.Report()
 	expected := "no such host Package=errors Func=TestCaptureError GoType=net.DNSError Op=dial"
-	assert.Contains(t, rr.err.Error(), expected, "should log dial error")
+	assert.Contains(t, rr.err.Finish().Error(), expected, "should log dial error")
 }
 
 func TestCaptureHTTPError(t *testing.T) {
@@ -92,5 +92,5 @@ func TestCaptureHTTPError(t *testing.T) {
 		Desc:    "EOF",
 		Op:      "Get",
 	}
-	assert.Equal(t, expected.Error(), rr.err.Error(), "should log http error")
+	assert.Equal(t, expected.Finish().Error(), rr.err.Finish().Error(), "should log http error")
 }
